@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Brave Mini – Navegador sem anúncios</title>
+  <style>
+    body {
+      background: #111;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 30px;
+    }
+    input, button {
+      padding: 10px;
+      border: none;
+      border-radius: 5px;
+      font-size: 16px;
+      margin: 5px;
+    }
+    input {
+      width: 70%;
+    }
+    button {
+      background: #ff9800;
+      color: #fff;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    button:hover {
+      background: #e68900;
+    }
+    iframe {
+      width: 100%;
+      height: 80vh;
+      margin-top: 20px;
+      border: none;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🦁 Brave Mini</h1>
+  <p>Assiste qualquer site ou vídeo sem anúncios e sem bloqueio de iframe.</p>
+  <input type="text" id="urlInput" placeholder="Cole aqui o link..." />
+  <button id="abrirBtn">Abrir</button>
+
+  <iframe id="visor" src=""></iframe>
+
+  <script>
+    const PROXY_PATH = '/.netlify/functions/proxy?url=';
+
+    document.getElementById('abrirBtn').addEventListener('click', () => {
+      const url = document.getElementById('urlInput').value.trim();
+      if (!url) return alert('Insira um link válido!');
+      const full = PROXY_PATH + encodeURIComponent(url);
+      document.getElementById('visor').src = full;
+    });
+  </script>
+</body>
+</html>

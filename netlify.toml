@@ -1,0 +1,3 @@
+[build]
+  functions = "./"    # diz ao Netlify que as funções estão na raiz
+  publish = "./"      # publica o index.html na raiz
