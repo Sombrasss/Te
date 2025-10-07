@@ -1,36 +1,55 @@
 // proxy.js
 export async function handler(event, context) {
   try {
-    const url = new URL(event.rawUrl);
-    const target = url.searchParams.get('url');
-    if (!target) return new Response('Falta o parâmetro ?url=', { status: 400 });
+    const params = new URLSearchParams(event.rawQuery);
+    const target = params.get('url');
+    if (!target) {
+      return {
+        statusCode: 400,
+        body: 'Falta o parâmetro ?url='
+      };
+    }
 
     const res = await fetch(target, { redirect: 'follow' });
     const contentType = res.headers.get('content-type') || '';
 
     // se não for HTML, apenas retransmite
     if (!contentType.includes('text/html')) {
-      const headers = new Headers(res.headers);
-      headers.delete('x-frame-options');
-      headers.delete('content-security-policy');
-      return new Response(res.body, { status: res.status, headers });
+      const arrayBuffer = await res.arrayBuffer();
+      const base64Body = Buffer.from(arrayBuffer).toString('base64');
+      const headers = Object.fromEntries(res.headers.entries());
+      delete headers['x-frame-options'];
+      delete headers['content-security-policy'];
+
+      return {
+        statusCode: res.status,
+        headers,
+        body: base64Body,
+        isBase64Encoded: true
+      };
     }
 
     let html = await res.text();
 
-    // remove anúncios e scripts
+    // remove scripts e anúncios
     html = html
       .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
       .replace(/<iframe\b[^>]*(ads|advert|doubleclick|adservice|adzerk|adsystem)[^>]*>[\s\S]*?<\/iframe>/gi, '')
       .replace(/\son\w+="[^"]*"/gi, '')
       .replace(/\b(class|id)=["'][^"']*(ads|banner|sponsor|promo|ad-)[^"']*["']/gi, '');
 
-    const headersOut = new Headers();
-    headersOut.set('Content-Type', 'text/html; charset=utf-8');
-    headersOut.set('Cache-Control', 'no-store');
-
-    return new Response(html, { status: 200, headers: headersOut });
+    return {
+      statusCode: 200,
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-store',
+      },
+      body: html
+    };
   } catch (err) {
-    return new Response('Erro: ' + err.message, { status: 500 });
+    return {
+      statusCode: 500,
+      body: 'Erro: ' + err.message
+    };
   }
 }
