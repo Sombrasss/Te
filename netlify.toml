@@ -1,11 +1,8 @@
 [build]
-  functions = "./"    # diz ao Netlify que as funções estão na raiz
-  publish = "./"      # publica o index.html na raiz
-
-
-  
+  publish = "."
+  functions = "netlify/functions"
 
 [[redirects]]
   from = "/*"
-  to = "/assistir1.html"
+  to = "/index.html"
   status = 200
