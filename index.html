@@ -10,9 +10,43 @@
       color: #fff;
       font-family: Arial, sans-serif;
       text-align: center;
-      padding: 30px;
+      padding: 20px;
     }
-    input, button {
+    h1 {
+      color: #ff9800;
+      margin-bottom: 10px;
+    }
+    iframe {
+      width: 100%;
+      height: 70vh;
+      border: none;
+      border-radius: 10px;
+      background: #000;
+      margin-bottom: 25px;
+      box-shadow: 0 0 15px #000;
+    }
+    .temporadas {
+      margin: 15px 0;
+    }
+    .episodios {
+      margin: 10px 0 20px;
+    }
+    .episodios button {
+      padding: 10px 15px;
+      border: none;
+      border-radius: 6px;
+      background: #333;
+      color: #ff9800;
+      cursor: pointer;
+      transition: 0.2s;
+      margin: 4px;
+      font-size: 15px;
+    }
+    .episodios button:hover {
+      background: #ff9800;
+      color: #111;
+    }
+    input, button#abrirBtn {
       padding: 10px;
       border: none;
       border-radius: 5px;
@@ -21,48 +55,72 @@
     }
     input {
       width: 70%;
+      max-width: 400px;
+      background: #222;
+      color: #fff;
+      border: 1px solid #444;
     }
-    button {
+    button#abrirBtn {
       background: #ff9800;
       color: #fff;
       cursor: pointer;
       transition: 0.2s;
     }
-    button:hover {
+    button#abrirBtn:hover {
       background: #e68900;
-    }
-    iframe {
-      width: 100%;
-      height: 80vh;
-      margin-top: 20px;
-      border: none;
-      border-radius: 10px;
-      background: #000;
     }
   </style>
 </head>
 <body>
   <h1>🦁 Brave Mini</h1>
-  <p>Assiste qualquer site ou vídeo sem anúncios — agora com proteção.</p>
+  <p>Assiste qualquer site ou vídeo sem anúncios — com proteção total.</p>
 
-  <input type="text" id="urlInput" placeholder="Cole o link aqui..." />
-  <button id="abrirBtn">Abrir</button>
-
+  <!-- IFRAME em cima -->
   <iframe id="visor" src=""></iframe>
+
+  <!-- Temporadas -->
+  <div class="temporadas">
+    <h2>Temporada 1</h2>
+    <div class="episodios">
+      <button onclick="abrirEpisodio('https://exemplo.com/temp1ep1')">Episódio 1</button>
+      <button onclick="abrirEpisodio('https://filemoon.sx/d/xca3drykmkyw')">Episódio 2</button>
+      <button onclick="abrirEpisodio('https://exemplo.com/temp1ep3')">Episódio 3</button>
+      <button onclick="abrirEpisodio('https://exemplo.com/temp1ep4')">Episódio 4</button>
+    </div>
+
+    <h2>Temporada 2</h2>
+    <div class="episodios">
+      <button onclick="abrirEpisodio('https://filemoon.sx/d/xca3drykmkyw')">Episódio 1</button>
+      <button onclick="abrirEpisodio('https://exemplo.com/temp2ep2')">Episódio 2</button>
+      <button onclick="abrirEpisodio('https://exemplo.com/temp2ep3')">Episódio 3</button>
+      <button onclick="abrirEpisodio('https://exemplo.com/temp2ep4')">Episódio 4</button>
+    </div>
+  </div>
+
+  <!-- Campo de link manual -->
+  <div>
+    <input type="text" id="urlInput" placeholder="Cole o link aqui..." />
+    <button id="abrirBtn">Abrir</button>
+  </div>
 
   <script>
     const PROXY_PATH = '/.netlify/functions/proxy?url=';
-
     const visor = document.getElementById('visor');
     const input = document.getElementById('urlInput');
     const btn = document.getElementById('abrirBtn');
 
-    // 🚀 Abre site no iframe via proxy
+    // 🚀 Abrir link digitado
     btn.addEventListener('click', () => {
       const url = input.value.trim();
       if (!url) return alert('Insira um link válido!');
-      visor.src = PROXY_PATH + encodeURIComponent(url);
+      abrirEpisodio(url);
     });
+
+    // 🎬 Abrir episódio via proxy
+    function abrirEpisodio(url) {
+      visor.src = PROXY_PATH + encodeURIComponent(url);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
 
     // ⚠️ Impede sair, recarregar ou voltar
     window.onbeforeunload = function(e) {
@@ -77,7 +135,7 @@
       history.pushState(null, "", window.location.href);
     });
 
-    // Recarrega se tentar minimizar ou mudar de aba (mantém o foco no site)
+    // Recarrega se tentar minimizar ou mudar de aba
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "hidden") {
         setTimeout(() => {
@@ -95,7 +153,7 @@
       };
     })();
 
-    // 🛡️ Protege contra redirecionamento no iframe (evita target="_blank")
+    // 🛡️ Protege contra redirecionamento no iframe
     visor.addEventListener('load', () => {
       try {
         const doc = visor.contentDocument || visor.contentWindow.document;
