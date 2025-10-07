@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Iframe + Confirmação ao Sair</title>
+  <style>
+    :root { --bg:#0f1724; --card:#111827; --accent:#06b6d4; --muted:#94a3b8; }
+    body{ margin:0; font-family: Inter, system-ui, Arial; background:linear-gradient(180deg,#071029 0%, #0b1220 100%); color:#e6eef6; min-height:100vh; display:flex; flex-direction:column; gap:12px; padding:18px; }
+    header{ display:flex; gap:12px; align-items:center; }
+    h1{ margin:0; font-size:18px; }
+    .controls{ margin-left:auto; display:flex; gap:8px; align-items:center; }
+    button{ background:var(--accent); color:#052025; border:0; padding:8px 12px; border-radius:8px; cursor:pointer; font-weight:600; }
+    button.secondary{ background:transparent; color:var(--accent); border:1px solid rgba(255,255,255,0.06); }
+    main{ display:flex; gap:16px; }
+    .frame-wrap{ flex:1; min-height:70vh; background:var(--card); border-radius:12px; overflow:hidden; border:1px solid rgba(255,255,255,0.03); box-shadow: 0 8px 30px rgba(2,6,23,0.6); display:flex; flex-direction:column; }
+    iframe{ width:100%; height:100%; border:0; display:block; flex:1; }
+    .sidebar{ width:320px; max-width:40%; background:rgba(255,255,255,0.02); padding:12px; border-radius:12px; }
+    .note{ color:var(--muted); font-size:13px; margin-top:8px; }
+    /* modal */
+    .modal-backdrop{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(2,6,23,0.6); z-index:9999; }
+    .modal{ background:#051021; padding:18px; border-radius:10px; width:min(420px,92%); box-shadow:0 12px 40px rgba(2,6,23,0.8); border:1px solid rgba(255,255,255,0.04); }
+    .modal h3{ margin:0 0 8px 0; }
+    .modal p{ margin:0 0 16px 0; color:var(--muted); }
+    .modal .row{ display:flex; gap:8px; justify-content:flex-end; }
+    .toggle { display:inline-flex; align-items:center; gap:8px; background:transparent; border:1px solid rgba(255,255,255,0.03); padding:6px 8px; border-radius:8px; cursor:pointer; }
+    .status { font-size:13px; color:var(--muted); margin-top:8px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Iframe com Proteção de Saída</h1>
+    <div class="controls">
+      <div class="toggle" id="toggleBtn" title="Ativa/Desativa a confirmação ao sair">
+        <input type="checkbox" id="protectCheck" style="transform:scale(1.2)" checked />
+        <label for="protectCheck" style="color:var(--muted); margin-left:6px;">Confirmar ao sair</label>
+      </div>
+      <button id="openExample" class="secondary">Abrir exemplo em nova aba</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="frame-wrap">
+      <!-- iframe: troque o src para a página que quer embutir.
+           Se o conteúdo for de outro domínio, não é possível controlar eventos internos por motivos de segurança (cross-origin). -->
+      <iframe id="myframe" src="https://dsvplay.com/d/y0fkdxu8kq71" title="Conteúdo embutido" sandbox="allow-scripts allow-forms allow-same-origin"></iframe>
+    </div>
+
+    <aside class="sidebar">
+      <strong>Instruções</strong>
+      <div class="note">
+        - Ao ativar, o navegador mostrará um diálogo padrão quando o usuário tentar fechar/recargar/navegar para fora da página.<br>
+        - Mensagens personalizadas no prompt são ignoradas pela maioria dos navegadores por razões de segurança.<br>
+        - Se o iframe apontar para o mesmo domínio (mesma origem), a página também tentará capturar navegações internas do iframe. Se for outro domínio (cross-origin), não será possível interceptar eventos dentro do iframe.
+      </div>
+
+      <div class="status" id="status">Proteção: <strong>Ativa</strong></div>
+      <div style="margin-top:12px;">
+        <button id="disableOnce" class="secondary">Desativar só uma vez</button>
+        <button id="forceLeave" style="background:#ef4444;color:white">Sair agora (forçar)</button>
+      </div>
+    </aside>
+  </main>
+
+  <!-- Modal de confirmação (para cliques em links) -->
+  <div class="modal-backdrop" id="modal">
+    <div class="modal" role="dialog" aria-modal="true">
+      <h3>Tem certeza que quer sair?</h3>
+      <p>Tem alterações não salvas ou ficará fora da página. Deseja continuar e sair?</p>
+      <div class="row">
+        <button id="cancelLeave" class="secondary">Cancelar</button>
+        <button id="confirmLeave" style="background:#ef4444;color:white">Sim, sair</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Estado
+    const protectCheck = document.getElementById('protectCheck');
+    const statusEl = document.getElementById('status');
+    const modal = document.getElementById('modal');
+    const confirmLeaveBtn = document.getElementById('confirmLeave');
+    const cancelLeaveBtn = document.getElementById('cancelLeave');
+    const disableOnceBtn = document.getElementById('disableOnce');
+    const forceLeaveBtn = document.getElementById('forceLeave');
+    const openExample = document.getElementById('openExample');
+
+    let protectionEnabled = protectCheck.checked;
+    let allowNavigation = false; // usado quando o usuário confirma no modal
+    updateStatus();
+
+    // beforeunload: quando o usuário fecha/recarga/troca url do navegador
+    window.addEventListener('beforeunload', function(e) {
+      if (!protectionEnabled) return;
+      // A maioria dos navegadores mostra um prompt padrão se returnValue for setado.
+      e.preventDefault();
+      e.returnValue = ''; // necessário para que o browser mostre o prompt
+      // Nota: não é possível personalizar a mensagem em navegadores modernos.
+    });
+
+    // Intercepta cliques em links na página (para mostrar modal em vez de navegar imediatamente)
+    document.addEventListener('click', function(ev) {
+      if (!protectionEnabled) return;
+      // procura o elemento <a> mais próximo
+      let a = ev.target.closest && ev.target.closest('a');
+      if (!a) return;
+      const href = a.getAttribute('href');
+      // se link abre em nova aba, deixe (não bloqueamos)
+      if (a.target && a.target !== '' && a.target !== '_self') return;
+      // se href é apenas âncora/local, ignore
+      if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+
+      // intercepta: previne navegação e mostra modal
+      ev.preventDefault();
+      // guarda destino temporariamente
+      modal.dataset.dest = href;
+      modal.style.display = 'flex';
+    });
+
+    // Modal buttons
+    cancelLeaveBtn.addEventListener('click', () => {
+      modal.style.display = 'none';
+      modal.dataset.dest = '';
+      allowNavigation = false;
+    });
+    confirmLeaveBtn.addEventListener('click', () => {
+      // permite navegação uma vez
+      allowNavigation = true;
+      modal.style.display = 'none';
+      const dest = modal.dataset.dest || null;
+      modal.dataset.dest = '';
+      // redireciona para o destino salvo (pode ser relative ou absolute)
+      if (dest) {
+        window.location.href = dest;
+      } else {
+        // fallback: recarregar (se não houver destino)
+        window.location.reload();
+      }
+    });
+
+    // Opções de UI
+    protectCheck.addEventListener('change', (e) => {
+      protectionEnabled = e.target.checked;
+      updateStatus();
+    });
+
+    document.getElementById('toggleBtn').addEventListener('click', () => {
+      protectCheck.checked = !protectCheck.checked;
+      protectionEnabled = protectCheck.checked;
+      updateStatus();
+    });
+
+    disableOnceBtn.addEventListener('click', () => {
+      // desativa a proteção por alguns segundos para permitir uma única navegação manual
+      protectionEnabled = false;
+      protectCheck.checked = false;
+      updateStatus();
+      setTimeout(() => {
+        protectionEnabled = true;
+        protectCheck.checked = true;
+        updateStatus();
+      }, 3000); // reativa após 3s
+    });
+
+    forceLeaveBtn.addEventListener('click', () => {
+      // força saída: remove handler e muda de página
+      protectionEnabled = false;
+      protectCheck.checked = false;
+      updateStatus();
+      window.location.href = 'about:blank';
+    });
+
+    openExample.addEventListener('click', () => {
+      // abre o src do iframe em nova aba
+      const src = document.getElementById('myframe').src;
+      window.open(src, '_blank');
+    });
+
+    function updateStatus() {
+      statusEl.innerHTML = 'Proteção: <strong>' + (protectionEnabled ? 'Ativa' : 'Desativada') + '</strong>';
+    }
+
+    // ----- Tentativa de interceptar navegações dentro do iframe (apenas funciona se for mesma origem) -----
+    const iframe = document.getElementById('myframe');
+    iframe.addEventListener('load', () => {
+      try {
+        // se o iframe for same-origin, podemos escutar cliques dentro dele:
+        const ifdoc = iframe.contentDocument || iframe.contentWindow.document;
+        if (!ifdoc) return;
+        ifdoc.addEventListener('click', function(ev) {
+          if (!protectionEnabled) return;
+          let a = ev.target.closest && ev.target.closest('a');
+          if (!a) return;
+          const href = a.getAttribute('href');
+          if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+          // prevenir navegação e pedir confirmação
+          ev.preventDefault();
+          modal.dataset.dest = href;
+          modal.style.display = 'flex';
+        });
+      } catch (err) {
+        // cross-origin: não é possível acessar o documento do iframe
+        // console.log('Iframe é cross-origin; não é possível interceptar seus eventos internamente.');
+      }
+    });
+
+    // Se o modal estiver aberto, capture ESC para fechar
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && modal.style.display === 'flex') {
+        modal.style.display = 'none';
+      }
+    });
+
+    // Nota de segurança: impossibilidades e limitações:
+    // - Não se pode impedir um usuário de forçar o fechamento da aba/janela (o beforeunload apenas pede confirmação).
+    // - Mensagens personalizadas no prompt de beforeunload são ignoradas pela maioria dos navegadores.
+    // - Não é possível interceptar eventos dentro de um iframe de outro domínio (cross-origin) por razões de segurança.
+  </script>
+</body>
+</html>
