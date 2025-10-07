@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Brave Mini – Navegador sem anúncios</title>
+  <title>🦁 Brave Mini — Protegido</title>
   <style>
     body {
       background: #111;
@@ -37,13 +37,15 @@
       margin-top: 20px;
       border: none;
       border-radius: 10px;
+      background: #000;
     }
   </style>
 </head>
 <body>
   <h1>🦁 Brave Mini</h1>
-  <p>Assiste qualquer site ou vídeo sem anúncios e sem bloqueio de iframe.</p>
-  <input type="text" id="urlInput" placeholder="Cole aqui o link..." />
+  <p>Assiste qualquer site ou vídeo sem anúncios — agora com proteção.</p>
+
+  <input type="text" id="urlInput" placeholder="Cole o link aqui..." />
   <button id="abrirBtn">Abrir</button>
 
   <iframe id="visor" src=""></iframe>
@@ -51,11 +53,57 @@
   <script>
     const PROXY_PATH = '/.netlify/functions/proxy?url=';
 
-    document.getElementById('abrirBtn').addEventListener('click', () => {
-      const url = document.getElementById('urlInput').value.trim();
+    const visor = document.getElementById('visor');
+    const input = document.getElementById('urlInput');
+    const btn = document.getElementById('abrirBtn');
+
+    // 🚀 Abre site no iframe via proxy
+    btn.addEventListener('click', () => {
+      const url = input.value.trim();
       if (!url) return alert('Insira um link válido!');
-      const full = PROXY_PATH + encodeURIComponent(url);
-      document.getElementById('visor').src = full;
+      visor.src = PROXY_PATH + encodeURIComponent(url);
+    });
+
+    // ⚠️ Impede sair, recarregar ou voltar
+    window.onbeforeunload = function(e) {
+      e.preventDefault();
+      e.returnValue = "Tens certeza que queres sair do Brave Mini?";
+      return "Tens certeza que queres sair do Brave Mini?";
+    };
+
+    // Bloqueia o botão "Voltar"
+    history.pushState(null, "", window.location.href);
+    window.addEventListener("popstate", function () {
+      history.pushState(null, "", window.location.href);
+    });
+
+    // Recarrega se tentar minimizar ou mudar de aba (mantém o foco no site)
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") {
+        setTimeout(() => {
+          window.location.href = window.location.href;
+        }, 100);
+      }
+    });
+
+    // 🚫 Impede abrir novas abas/janelas
+    (function() {
+      const originalOpen = window.open;
+      window.open = function() {
+        alert('⚠️ Abertura de nova aba bloqueada!');
+        return null;
+      };
+    })();
+
+    // 🛡️ Protege contra redirecionamento no iframe (evita target="_blank")
+    visor.addEventListener('load', () => {
+      try {
+        const doc = visor.contentDocument || visor.contentWindow.document;
+        const links = doc.querySelectorAll('a[target]');
+        links.forEach(link => link.removeAttribute('target'));
+      } catch (err) {
+        console.warn('Proteção parcial — domínio externo não acessível:', err);
+      }
     });
   </script>
 </body>
